@@ -1,8 +1,8 @@
 [master]
-ec2-x-x-x-xxx.compute-1.amazonaws.com
+172.31.26.104
 
 [worker]
-ec2-x-xx-xxx-xxx.compute-1.amazonaws.com
+172.31.29.30
 
 [cluster:children]
 master
