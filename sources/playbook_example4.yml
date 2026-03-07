@@ -3,11 +3,9 @@
   hosts: web-server1
   tasks:
     - name: Stop secret
-      ansible.legacy.command: set -o pipefail && date +%s | sha256sum | base64 | head -c 32 ; echo
+      ansible.builtin.shell: date +%s | sha256sum | base64 | head -c 32
       register: command_output
       changed_when: false
-      args:
-        executable: /bin/bash
 
     - name: Command output
       ansible.builtin.debug:
