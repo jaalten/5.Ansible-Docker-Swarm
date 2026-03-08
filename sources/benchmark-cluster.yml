@@ -33,23 +33,137 @@
       failed_when: false
       changed_when: rm_output.rc == 0
 
-    - name: Create whoami service
+    - name: Create whoami service with 1 replica
       ansible.legacy.command:
-        cmd: "docker service create --name whoami --publish published=8080,target=80 --replicas 1 containous/whoami"
+        cmd: "docker service create --name whoami --publish published=8080,target=80 --replicas 1 traefik/whoami"
       become: true
       register: create_output
       changed_when: create_output.rc == 0
 
-- name: Benchmark whoami service
+    - name: Wait for service to stabilize
+      ansible.builtin.pause:
+        seconds: 15
+
+- name: Benchmark with 1 replica
   hosts: localhost
   gather_facts: true
   tasks:
-    - name: Run wrk benchmark against whoami service
+    - name: Run wrk benchmark (1 replica)
       ansible.legacy.command:
-        cmd: "wrk -t4 -c5 -d30s http://{{ hostvars | first }}:8080"
-      register: wrk_output
-      changed_when: wrk_output.rc == 0
+        cmd: "wrk -t4 -c5 -d30s http://{{ groups['master'][0] }}:8080"
+      register: wrk_1
+      changed_when: false
 
-    - name: Display wrk benchmark results
+    - name: Display results (1 replica)
       ansible.builtin.debug:
-        msg: '{{ wrk_output.stdout_lines | select("search", "Req/Sec") }}'
+        msg: '{{ wrk_1.stdout_lines | select("search", "Req/Sec") }}'
+
+    - name: Save result for summary
+      ansible.builtin.set_fact:
+        bench_1: '{{ wrk_1.stdout_lines | select("search", "Req/Sec") | list }}'
+
+- name: Scale to 2 replicas
+  hosts: master
+  tasks:
+    - name: Scale whoami to 2 replicas
+      ansible.legacy.command:
+        cmd: "docker service scale whoami=2"
+      become: true
+      changed_when: true
+
+    - name: Wait for service to stabilize
+      ansible.builtin.pause:
+        seconds: 15
+
+- name: Benchmark with 2 replicas
+  hosts: localhost
+  gather_facts: true
+  tasks:
+    - name: Run wrk benchmark (2 replicas)
+      ansible.legacy.command:
+        cmd: "wrk -t4 -c5 -d30s http://{{ groups['master'][0] }}:8080"
+      register: wrk_2
+      changed_when: false
+
+    - name: Display results (2 replicas)
+      ansible.builtin.debug:
+        msg: '{{ wrk_2.stdout_lines | select("search", "Req/Sec") }}'
+
+    - name: Save result for summary
+      ansible.builtin.set_fact:
+        bench_2: '{{ wrk_2.stdout_lines | select("search", "Req/Sec") | list }}'
+
+- name: Scale to 4 replicas
+  hosts: master
+  tasks:
+    - name: Scale whoami to 4 replicas
+      ansible.legacy.command:
+        cmd: "docker service scale whoami=4"
+      become: true
+      changed_when: true
+
+    - name: Wait for service to stabilize
+      ansible.builtin.pause:
+        seconds: 15
+
+- name: Benchmark with 4 replicas
+  hosts: localhost
+  gather_facts: true
+  tasks:
+    - name: Run wrk benchmark (4 replicas)
+      ansible.legacy.command:
+        cmd: "wrk -t4 -c5 -d30s http://{{ groups['master'][0] }}:8080"
+      register: wrk_4
+      changed_when: false
+
+    - name: Display results (4 replicas)
+      ansible.builtin.debug:
+        msg: '{{ wrk_4.stdout_lines | select("search", "Req/Sec") }}'
+
+    - name: Save result for summary
+      ansible.builtin.set_fact:
+        bench_4: '{{ wrk_4.stdout_lines | select("search", "Req/Sec") | list }}'
+
+- name: Scale to 8 replicas
+  hosts: master
+  tasks:
+    - name: Scale whoami to 8 replicas
+      ansible.legacy.command:
+        cmd: "docker service scale whoami=8"
+      become: true
+      changed_when: true
+
+    - name: Wait for service to stabilize
+      ansible.builtin.pause:
+        seconds: 15
+
+- name: Benchmark with 8 replicas
+  hosts: localhost
+  gather_facts: true
+  tasks:
+    - name: Run wrk benchmark (8 replicas)
+      ansible.legacy.command:
+        cmd: "wrk -t4 -c5 -d30s http://{{ groups['master'][0] }}:8080"
+      register: wrk_8
+      changed_when: false
+
+    - name: Display results (8 replicas)
+      ansible.builtin.debug:
+        msg: '{{ wrk_8.stdout_lines | select("search", "Req/Sec") }}'
+
+    - name: Save result for summary
+      ansible.builtin.set_fact:
+        bench_8: '{{ wrk_8.stdout_lines | select("search", "Req/Sec") | list }}'
+
+- name: Print summary
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Benchmark summary
+      ansible.builtin.debug:
+        msg:
+          - "=== Benchmark Summary ==="
+          - "1 replica:  {{ bench_1 }}"
+          - "2 replicas: {{ bench_2 }}"
+          - "4 replicas: {{ bench_4 }}"
+          - "8 replicas: {{ bench_8 }}"
